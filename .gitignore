@@ -1,0 +1,11 @@
+# Local environment variables (API keys)
+.env
+
+# Python virtual environment (if you are using one)
+venv/
+.venv/gitgit
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
