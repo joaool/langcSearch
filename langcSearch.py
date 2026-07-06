@@ -3,7 +3,7 @@ import os
 import streamlit as st
 # Modern LangChain Core imports
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 
@@ -74,10 +74,10 @@ system_prompt = (
     "Use your web search tool intelligently by specifying domains."
 )
 # create_react_agent creates a fully compilable state graph automatically
-agent_executor = create_agent(
+agent_executor = create_react_agent(
     model, 
     tools, 
-    prompt=system_prompt  # Pass system instructions using the 'prompt' parameter
+    state_modifier=system_prompt  # <-- Use state_modifier for the string prompt
 )
 
 # --- Streamlit Chat Interface ---
