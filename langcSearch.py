@@ -54,7 +54,7 @@ def serper_search_tool(
     if time_filter:
         payload["tbs"] = time_filter  # Serper maps time constraints via Google's 'tbs' parameter
     headers = {'X-API-KEY': os.getenv("SERPER_API_KEY"), 'Content-Type': 'application/json'}
-    #print(f"Making request to {url} with payload: {payload}")
+    print(f"Making request to {url} with payload: {payload}")
     try:
         response = requests.post(url, headers=headers, json=payload)
         if response.status_code != 200:
