@@ -32,7 +32,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # --- Streamlit Chat Interface ---
-st.title("🕵️‍♂️ OSINT AI Research Agent")
+st.title("🕵️‍♂️ OSINT AI Research Agent v2")
 st.caption("Powered by FrameLink and Serper.dev")
 # --- Display existing chat history from session state ---
 if user_input := st.chat_input("What would you like to research today?"):
