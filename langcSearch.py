@@ -5,79 +5,15 @@ import streamlit as st
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.tools import tool
+from serper_tool import serper_search_tool 
+# from langchain_core.tools import tool
 
-import requests
+#import requests
 from dotenv import load_dotenv  # <-- Add this import
 # Load environment variables from your .env file
 load_dotenv()
-
-# --- 1. Define the Custom Tool 
-@tool
-def serper_search_tool(
-    search_type: str, 
-    query: str, 
-    site: str = None, 
-    filetype: str = None, 
-    gl: str = "us", 
-    hl: str = "en",
-    time_filter: str = None,
-    num: int = 10,  # Add the result limit here (default to 10)
-) -> dict:
-    """Search Google for real-time information and breaking news using Serper.
-     Args:
-        search_type: The endpoint to use ('search', 'news', 'images', 'places', 'shopping', 'scholar'). MANDATORY.
-        query: The raw keywords to search for.
-        site: Optional. Restrict search results to a specific domain (e.g., 'lowcode.agency').
-        filetype: Optional. Restrict results to a specific file extension (e.g., 'pdf', 'docx').
-        gl: Optional. Two-letter country code (default: 'us').
-        hl: Optional. Two-letter language code (default: 'en').
-        time_filter: Optional. Temporal restrictions using Google format (e.g., 'qdr:d' for past day, 'qdr:w' for past week).
-        num: Optional. The maximum number of results to return (integer between 10 and 100, default is 10).    
-    """
-    # 1. Dynamically build the URL based on search_type
-    url = f"https://google.serper.dev/{search_type}"
-    # 2. Append site and filetype filters directly into the Google query string
-    if site:
-        query = f"{query} site:{site}"
-    if filetype:
-        query = f"{query} filetype:{filetype}"   
-    #print(f"Final query after applying filters: {query}")
-    # 3. Build the Serper API payload
-    payload = {
-        "q": query,
-        "gl": gl,
-        "hl": hl,
-        "num": num  # Map it directly into the JSON body sent to Serper
-    }
-    # Check the explicitly defined parameter
-    if time_filter:
-        payload["tbs"] = time_filter  # Serper maps time constraints via Google's 'tbs' parameter
-
-    # --- NEW: Save the API request metadata into Streamlit Session State ---
-    if "tool_logs" not in st.session_state:
-        st.session_state.tool_logs = []
-    
-    st.session_state.tool_logs.append({
-        "url": url,
-        "payload": payload
-    })
-    # Terminal backup print statement
-    print(f"Making request to {url} with payload: {payload}")
-
-    headers = {'X-API-KEY': os.getenv("SERPER_API_KEY"), 'Content-Type': 'application/json'}
-
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code != 200:
-            return {"error": f"HTTP {response.status_code}", "message": response.text}
-        return response.json()
-    except Exception as e:
-        return {"error": "Request failed", "details": str(e)}
-
 # --- Build the Agent Using Core LangChain ---
 tools = [serper_search_tool]
-# Initialize your foundational LLM
 model = ChatOpenAI(model="gpt-4o", temperature=0)
 
 # Define your system instructions directly as a string or SystemMessage
