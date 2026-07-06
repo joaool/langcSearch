@@ -1,5 +1,5 @@
 streamlit
+langchain
 langchain-openai
 langchain-core
 python-dotenv
-langgraph
