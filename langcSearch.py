@@ -53,8 +53,20 @@ def serper_search_tool(
     # Check the explicitly defined parameter
     if time_filter:
         payload["tbs"] = time_filter  # Serper maps time constraints via Google's 'tbs' parameter
-    headers = {'X-API-KEY': os.getenv("SERPER_API_KEY"), 'Content-Type': 'application/json'}
+
+    # --- NEW: Save the API request metadata into Streamlit Session State ---
+    if "tool_logs" not in st.session_state:
+        st.session_state.tool_logs = []
+    
+    st.session_state.tool_logs.append({
+        "url": url,
+        "payload": payload
+    })
+    # Terminal backup print statement
     print(f"Making request to {url} with payload: {payload}")
+
+    headers = {'X-API-KEY': os.getenv("SERPER_API_KEY"), 'Content-Type': 'application/json'}
+
     try:
         response = requests.post(url, headers=headers, json=payload)
         if response.status_code != 200:
@@ -87,35 +99,47 @@ if "messages" not in st.session_state:
 st.title("🕵️‍♂️ OSINT AI Research Agent")
 st.caption("Powered by FrameLink and Serper.dev")
 # --- Display existing chat history from session state ---
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# --- Capture live user input from the UI chat bar ---
 if user_input := st.chat_input("What would you like to research today?"):
     
-    # 1. Display user message in the UI and save to session state
     st.chat_message("user").markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
     
-    # 2. Call your LangGraph agent loop
+    # Reset tool log array for the fresh execution loop
+    st.session_state.tool_logs = []
+    
     with st.spinner("Searching and analyzing..."):
         try:
+            # Create a placeholder container to append real-time tracking widgets into
+            status_container = st.container()
+            
             response = agent_executor.invoke({
                 "messages": [("user", user_input)]
             })
             
-            # Extract the final answer text string from the response message array
+            # --- NEW: Render tool executions inside an expandable status drawer ---
+            captured_logs = st.session_state.get("tool_logs", [])
+            if captured_logs:
+                with status_container:
+                    with st.status("🛠️ Tool Executions Detected", expanded=False) as status_box:
+                        for log in captured_logs:
+                            st.write(f"**Endpoint Triggered:** `{log['url']}`")
+                            st.json(log['payload'])
+                        status_box.update(label="API Calls Inspected Successfully", state="complete")
+            
             final_answer = response["messages"][-1].content
             
-            # 3. Display the agent's answer in the UI and save it
             with st.chat_message("assistant"):
                 st.markdown(final_answer)
-            st.session_state.messages.append({"role": "assistant", "content": final_answer})
+                
+            # Append message alongside its associated search trace array to maintain persistence on webpage refreshes
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": final_answer,
+                "logs": captured_logs
+            })
             
         except Exception as e:
             st.error(f"Agent failed to execute: {str(e)}")
-
 #search_results = serper_search_tool.invoke({"query": "manual Sony WH-1000XM4","search_type": "search","filetype": "pdf","num":1})
 #print("Search Results:", search_results)
 #search_results = serper_search_tool.invoke({"query": "\"liste des exposants\" OR \"exhibitors list\"","search_type": "search","site":"expoprotection.com","filetype":"pdf","gl":"fr"})#ok
