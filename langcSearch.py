@@ -79,6 +79,9 @@ agent_executor = create_react_agent(
     tools, 
     prompt=system_prompt  # LangGraph now expects 'prompt' for string instructions
 )
+# --- Initialize Chat History Session State ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # --- Streamlit Chat Interface ---
 st.title("🕵️‍♂️ OSINT AI Research Agent")
