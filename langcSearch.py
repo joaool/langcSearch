@@ -77,7 +77,7 @@ system_prompt = (
 agent_executor = create_react_agent(
     model, 
     tools, 
-    state_modifier=system_prompt  # <-- Use state_modifier for the string prompt
+    prompt=system_prompt  # LangGraph now expects 'prompt' for string instructions
 )
 
 # --- Streamlit Chat Interface ---
