@@ -1,21 +1,16 @@
 import time
 import os
 import streamlit as st
-# Modern LangChain Core imports
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from serper_tool import serper_search_tool 
-# from langchain_core.tools import tool
-
-#import requests
 from dotenv import load_dotenv  # <-- Add this import
 # Load environment variables from your .env file
 load_dotenv()
 # --- Build the Agent Using Core LangChain ---
 tools = [serper_search_tool]
 model = ChatOpenAI(model="gpt-4o", temperature=0)
-
 # Define your system instructions directly as a string or SystemMessage
 system_prompt = (
     "You are an advanced market research and OSINT AI agent. "
@@ -30,9 +25,8 @@ agent_executor = create_react_agent(
 # --- Initialize Chat History Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
 # --- Streamlit Chat Interface ---
-st.title("🕵️‍♂️ OSINT AI Research Agent v2")
+st.title("🕵️‍♂️ OSINT AI Research Agent v3")
 st.caption("Powered by FrameLink and Serper.dev")
 # --- Display existing chat history from session state ---
 if user_input := st.chat_input("What would you like to research today?"):
