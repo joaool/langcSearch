@@ -83,18 +83,35 @@ agent_executor = create_react_agent(
 # --- Streamlit Chat Interface ---
 st.title("🕵️‍♂️ OSINT AI Research Agent")
 st.caption("Powered by FrameLink and Serper.dev")
-# When a user types a prompt:
-user_input = "Your user query here"
+# --- Display existing chat history from session state ---
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Invoke LangGraph using a 'messages' key array
-response = agent_executor.invoke({
-    "messages": [("user", user_input)]
-})
-
-# LangGraph returns a dictionary containing the entire chat history. 
-# The last item in the list is the final AI response text:
-final_answer = response["messages"][-1].content
-st.write(final_answer)
+# --- Capture live user input from the UI chat bar ---
+if user_input := st.chat_input("What would you like to research today?"):
+    
+    # 1. Display user message in the UI and save to session state
+    st.chat_message("user").markdown(user_input)
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    # 2. Call your LangGraph agent loop
+    with st.spinner("Searching and analyzing..."):
+        try:
+            response = agent_executor.invoke({
+                "messages": [("user", user_input)]
+            })
+            
+            # Extract the final answer text string from the response message array
+            final_answer = response["messages"][-1].content
+            
+            # 3. Display the agent's answer in the UI and save it
+            with st.chat_message("assistant"):
+                st.markdown(final_answer)
+            st.session_state.messages.append({"role": "assistant", "content": final_answer})
+            
+        except Exception as e:
+            st.error(f"Agent failed to execute: {str(e)}")
 
 #search_results = serper_search_tool.invoke({"query": "manual Sony WH-1000XM4","search_type": "search","filetype": "pdf","num":1})
 #print("Search Results:", search_results)
