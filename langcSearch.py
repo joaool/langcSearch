@@ -8,6 +8,31 @@ from serper_tool import serper_search_tool
 from dotenv import load_dotenv  # <-- Add this import
 # Load environment variables from your .env file
 load_dotenv()
+
+# --- Password Gate ---
+def check_password() -> bool:
+    """Blocks access to the app until the correct APP_PASSWORD is entered."""
+    app_password = os.getenv("APP_PASSWORD")
+    if not app_password:
+        st.error("APP_PASSWORD is not set. Configure it as an environment variable to enable access.")
+        return False
+
+    if st.session_state.get("authenticated", False):
+        return True
+
+    st.title("🔒 OSINT AI Research Agent")
+    entered_password = st.text_input("Password", type="password")
+    if st.button("Log in"):
+        if entered_password == app_password:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Incorrect password.")
+    return False
+
+if not check_password():
+    st.stop()
+
 # --- Build the Agent Using Core LangChain ---
 tools = [serper_search_tool]
 model = ChatOpenAI(model="gpt-4o", temperature=0)

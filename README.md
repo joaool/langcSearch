@@ -33,7 +33,10 @@ A Streamlit chat app that pairs a LangGraph ReAct agent (GPT-4o via `langchain-o
    ```
    SERPER_API_KEY=your_serper_api_key_here
    OPENAI_API_KEY=your_openai_api_key_here
+   APP_PASSWORD=choose_a_password
    ```
+
+   `APP_PASSWORD` gates access to the whole app (see [Password gate](#password-gate) below) — the app refuses to load if it isn't set.
 
    > A `.env` already exists in this project with live keys. Since it was committed to the working tree, treat those keys as exposed and consider rotating them at serper.dev and platform.openai.com before sharing this repo or its history with anyone.
 
@@ -73,6 +76,10 @@ results = serper_search_tool.invoke({
 | `num`         | int  | No       | Max results to return (default `10`).                                         |
 
 Note: `search_type` is mandatory even though it's not the first positional field — omitting it will raise a validation error from the tool schema.
+
+## Password gate
+
+The whole app sits behind a single shared password read from the `APP_PASSWORD` environment variable — nothing loads (agent, sidebar, chat) until it's entered correctly in the login screen. This exists because the app is often deployed with a public URL, and every chat message or manual search burns billed OpenAI/Serper API calls. It's session-based (`st.session_state.authenticated`) and stored in plaintext in the env var — fine for keeping casual visitors out, not a substitute for real auth if you need per-user accounts or stronger security.
 
 ## Manual search (bypass the AI agent)
 
