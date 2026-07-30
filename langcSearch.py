@@ -28,6 +28,66 @@ if "messages" not in st.session_state:
 # --- Streamlit Chat Interface ---
 st.title("🕵️‍♂️ OSINT AI Research Agent v3")
 st.caption("Powered by FrameLink and Serper.dev")
+
+# --- Manual Search Sidebar (bypass the AI agent, call Serper directly) ---
+with st.sidebar:
+    st.header("🔧 Manual Search")
+    st.caption("Call the Serper tool directly with your own parameters, skipping the AI agent.")
+    with st.form("manual_search_form"):
+        manual_query = st.text_input("Query")
+        manual_search_type = st.selectbox(
+            "Search type",
+            ["search", "news", "images", "places", "shopping", "scholar"],
+        )
+        manual_site = st.text_input("Site (optional)")
+        manual_filetype = st.text_input("Filetype (optional)")
+        col1, col2 = st.columns(2)
+        with col1:
+            manual_gl = st.text_input("Country (gl)", value="us")
+        with col2:
+            manual_hl = st.text_input("Language (hl)", value="en")
+        time_filter_labels = {
+            "": "None",
+            "qdr:h": "Past hour",
+            "qdr:d": "Past day",
+            "qdr:w": "Past week",
+            "qdr:m": "Past month",
+            "qdr:y": "Past year",
+        }
+        manual_time_filter = st.selectbox(
+            "Time filter (optional)",
+            list(time_filter_labels.keys()),
+            format_func=lambda v: time_filter_labels[v],
+        )
+        manual_num = st.number_input("Num results", min_value=1, max_value=100, value=10)
+        manual_submit = st.form_submit_button("Run Search")
+
+    if manual_submit:
+        if not manual_query:
+            st.warning("Query is required.")
+        else:
+            manual_payload = {
+                "search_type": manual_search_type,
+                "query": manual_query,
+                "gl": manual_gl,
+                "hl": manual_hl,
+                "num": int(manual_num),
+            }
+            if manual_site:
+                manual_payload["site"] = manual_site
+            if manual_filetype:
+                manual_payload["filetype"] = manual_filetype
+            if manual_time_filter:
+                manual_payload["time_filter"] = manual_time_filter
+
+            with st.spinner("Searching..."):
+                st.session_state.manual_result = serper_search_tool.invoke(manual_payload)
+                st.session_state.manual_payload = manual_payload
+
+    if "manual_result" in st.session_state:
+        st.subheader("Result")
+        st.json(st.session_state.manual_result)
+
 # --- Display existing chat history from session state ---
 if user_input := st.chat_input("What would you like to research today?"):
     
