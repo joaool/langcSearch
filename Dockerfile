@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY langcSearch.py serper_tool.py ./
+COPY assets ./assets
 
 EXPOSE 8501
 

@@ -56,6 +56,7 @@ st.caption("Powered by FrameLink and Serper.dev")
 
 # --- Manual Search Sidebar (bypass the AI agent, call Serper directly) ---
 with st.sidebar:
+    st.image("assets/framelink_logo.png")
     st.header("🔧 Manual Search")
     st.caption("Call the Serper tool directly with your own parameters, skipping the AI agent.")
     with st.form("manual_search_form"):
