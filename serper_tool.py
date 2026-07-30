@@ -1,7 +1,19 @@
 import os
 import requests
 import streamlit as st
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 from langchain_core.tools import tool
+
+
+def _log_tool_call(url: str, payload: dict) -> None:
+    """Record the request in Streamlit's session state, when running inside a Streamlit app.
+    No-ops when called from a plain Python process (e.g. the API), which has no session state."""
+    if get_script_run_ctx() is None:
+        return
+    if "tool_logs" not in st.session_state:
+        st.session_state.tool_logs = []
+    st.session_state.tool_logs.append({"url": url, "payload": payload})
+
 
 @tool
 def serper_search_tool(
@@ -32,24 +44,17 @@ def serper_search_tool(
     if filetype:
         query = f"{query} filetype:{filetype}"   
 
-    # Check if tool_logs is initialized in session state
-    if "tool_logs" not in st.session_state:
-        st.session_state.tool_logs = []
-    
     payload = {
         "q": query,
         "gl": gl,
         "hl": hl,
-        "num": num  
+        "num": num
     }
     if time_filter:
-        payload["tbs"] = time_filter  
+        payload["tbs"] = time_filter
 
-    st.session_state.tool_logs.append({
-        "url": url,
-        "payload": payload
-    })
-    
+    _log_tool_call(url, payload)
+
     print(f"Making request to {url} with payload: {payload}")
     headers = {'X-API-KEY': os.getenv("SERPER_API_KEY"), 'Content-Type': 'application/json'}
 

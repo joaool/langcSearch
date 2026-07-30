@@ -4,8 +4,10 @@ A Streamlit chat app that pairs a LangGraph ReAct agent (GPT-4o via `langchain-o
 
 ## How it works
 
-- [langcSearch.py](langcSearch.py) — Streamlit UI. Loads env vars, builds a `create_react_agent` (LangGraph) with GPT-4o and the search tool, and renders the chat plus a "Tool Executions" panel showing every Serper request the agent made.
-- [serper_tool.py](serper_tool.py) — the `serper_search_tool` LangChain tool. Wraps the Serper.dev REST API (`https://google.serper.dev/{search_type}`) and logs each call's URL/payload into `st.session_state.tool_logs` for display in the UI.
+- [agent_core.py](agent_core.py) — builds the GPT-4o + LangGraph `create_react_agent`. Shared by both `langcSearch.py` and `api.py` so the agent is defined in exactly one place.
+- [langcSearch.py](langcSearch.py) — Streamlit UI. Password-gated; renders the chat plus a "Tool Executions" panel showing every Serper request the agent made, and a Manual Search sidebar that bypasses the agent.
+- [api.py](api.py) — FastAPI service exposing the same two capabilities as the UI over HTTP (see [API](#api) below).
+- [serper_tool.py](serper_tool.py) — the `serper_search_tool` LangChain tool. Wraps the Serper.dev REST API (`https://google.serper.dev/{search_type}`). When run inside Streamlit it also logs each call's URL/payload into `st.session_state.tool_logs` for the UI's tool-log panel; it no-ops that logging when called from the API, where there's no Streamlit session.
 
 ## Prerequisites
 
@@ -34,9 +36,10 @@ A Streamlit chat app that pairs a LangGraph ReAct agent (GPT-4o via `langchain-o
    SERPER_API_KEY=your_serper_api_key_here
    OPENAI_API_KEY=your_openai_api_key_here
    APP_PASSWORD=choose_a_password
+   API_KEY=choose_a_separate_api_key
    ```
 
-   `APP_PASSWORD` gates access to the whole app (see [Password gate](#password-gate) below) — the app refuses to load if it isn't set.
+   `APP_PASSWORD` gates the Streamlit UI (see [Password gate](#password-gate) below); `API_KEY` gates the REST API (see [API](#api) below). They're deliberately separate secrets for separate consumers.
 
    > A `.env` already exists in this project with live keys. Since it was committed to the working tree, treat those keys as exposed and consider rotating them at serper.dev and platform.openai.com before sharing this repo or its history with anyone.
 
@@ -85,8 +88,57 @@ The whole app sits behind a single shared password read from the `APP_PASSWORD` 
 
 The sidebar has a "🔧 Manual Search" form that calls `serper_search_tool` directly with parameters you set (search type, query, site, filetype, gl, hl, time filter, num results) and shows the raw JSON response — no OpenAI call involved. Useful for testing the Serper integration or running a specific query without going through the chat agent.
 
+## API
+
+`api.py` exposes the same two capabilities as the UI over HTTP, so other systems can call this agent programmatically. Every endpoint requires an `X-API-Key` header matching the `API_KEY` env var.
+
+Run locally with:
+
+```powershell
+uvicorn api:app --reload
+```
+
+### `POST /search/ai` — equivalent to the chat panel
+
+The agent decides whether and how to search.
+
+```bash
+curl -X POST http://localhost:8000/search/ai \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key" \
+  -d '{"query": "What is today'\''s top AI business news?"}'
+```
+
+Response:
+
+```json
+{
+  "answer": "...",
+  "tool_calls": [
+    {"tool": "serper_search_tool", "args": {"search_type": "news", "query": "AI business news", "time_filter": "qdr:d"}}
+  ]
+}
+```
+
+### `POST /search/direct` — equivalent to the Manual Search panel
+
+Calls `serper_search_tool` directly, bypassing the agent. Body mirrors the [tool parameters](#tool-parameters) above.
+
+```bash
+curl -X POST http://localhost:8000/search/direct \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key" \
+  -d '{"search_type": "search", "query": "AI business use cases", "num": 5}'
+```
+
+Returns the raw Serper JSON response.
+
+### Deploying the API
+
+The API is meant to run as its own service, separate from the Streamlit UI deployment — see [Dockerfile.api](Dockerfile.api) (built with `uvicorn api:app --host 0.0.0.0 --port $PORT`, same pattern as the UI's [Dockerfile](Dockerfile)). On Railway, deploy it as a second service from this same repo pointing at `Dockerfile.api`, with `OPENAI_API_KEY`, `SERPER_API_KEY`, and `API_KEY` set in its own Variables tab.
+
 ## Notes
 
 - Every Serper call the agent makes during a turn is recorded and shown in an expandable "🛠️ Tool Executions Detected" panel under the assistant's reply, so you can audit exactly what was searched.
 - Chat history persists across reruns via `st.session_state.messages`, including each message's associated tool logs.
-- The agent model is hardcoded to `gpt-4o` with `temperature=0` in [langcSearch.py](langcSearch.py#L13); change it there if you want a different model or more creative responses.
+- The agent model is hardcoded to `gpt-4o` with `temperature=0` in [agent_core.py](agent_core.py); change it there if you want a different model or more creative responses — it applies to both the UI and the API since they share this module.

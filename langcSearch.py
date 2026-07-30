@@ -1,10 +1,7 @@
 import time
 import os
 import streamlit as st
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from serper_tool import serper_search_tool 
+from serper_tool import serper_search_tool
 from dotenv import load_dotenv  # <-- Add this import
 # Load environment variables from your .env file
 load_dotenv()
@@ -33,20 +30,9 @@ def check_password() -> bool:
 if not check_password():
     st.stop()
 
-# --- Build the Agent Using Core LangChain ---
-tools = [serper_search_tool]
-model = ChatOpenAI(model="gpt-4o", temperature=0)
-# Define your system instructions directly as a string or SystemMessage
-system_prompt = (
-    "You are an advanced market research and OSINT AI agent. "
-    "Use your web search tool intelligently by specifying domains."
-)
-# create_react_agent creates a fully compilable state graph automatically
-agent_executor = create_react_agent(
-    model, 
-    tools, 
-    prompt=system_prompt  # LangGraph now expects 'prompt' for string instructions
-)
+# --- Build the Agent (shared with the API, see agent_core.py) ---
+from agent_core import agent_executor
+
 # --- Initialize Chat History Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = []

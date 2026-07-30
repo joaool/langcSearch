@@ -5,3 +5,5 @@ langchain-core
 langgraph
 python-dotenv
 requests
+fastapi
+uvicorn
