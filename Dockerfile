@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY langcSearch.py serper_tool.py ./
+COPY langcSearch.py serper_tool.py agent_core.py ./
 COPY assets ./assets
 
 EXPOSE 8501
