@@ -10,13 +10,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+import openai
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from agent_core import agent_executor, model
 from serper_tool import serper_search_tool
 
 app = FastAPI(title="OSINT AI Research Agent API")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Safety net: surface the real error instead of a blind 500 with no body."""
+    return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
+
+
+def _openai_error_detail(exc: openai.BadRequestError):
+    return exc.body if isinstance(exc.body, dict) else str(exc)
 
 
 def require_api_key(x_api_key: Optional[str] = Header(None)) -> None:
@@ -61,7 +73,11 @@ def search_ai(request: AISearchRequest):
     If `response_schema` (a JSON Schema object) is provided, a second pass formats
     the findings into that exact shape, returned as `structured_answer`.
     """
-    response = agent_executor.invoke({"messages": [("user", request.query)]})
+    try:
+        response = agent_executor.invoke({"messages": [("user", request.query)]})
+    except openai.BadRequestError as e:
+        raise HTTPException(status_code=400, detail=_openai_error_detail(e))
+
     messages = response["messages"]
 
     tool_calls = []
@@ -73,11 +89,16 @@ def search_ai(request: AISearchRequest):
 
     structured_answer = None
     if request.response_schema:
-        structured_answer = model.with_structured_output(request.response_schema).invoke(
-            f"Question: {request.query}\n\n"
-            f"Research findings:\n{answer}\n\n"
-            "Format these findings into the requested JSON structure."
-        )
+        try:
+            structured_answer = model.with_structured_output(request.response_schema).invoke(
+                f"Question: {request.query}\n\n"
+                f"Research findings:\n{answer}\n\n"
+                "Format these findings into the requested JSON structure."
+            )
+        except openai.BadRequestError as e:
+            raise HTTPException(status_code=400, detail=_openai_error_detail(e))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail={"message": f"Invalid response_schema: {e}"})
 
     return AISearchResponse(answer=answer, structured_answer=structured_answer, tool_calls=tool_calls)
 
