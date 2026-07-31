@@ -114,9 +114,44 @@ Response:
 ```json
 {
   "answer": "...",
+  "structured_answer": null,
   "tool_calls": [
     {"tool": "serper_search_tool", "args": {"search_type": "news", "query": "AI business news", "time_filter": "qdr:d"}}
   ]
+}
+```
+
+#### Requesting a specific JSON shape
+
+Pass `response_schema` — a [JSON Schema](https://json-schema.org/) object — and the endpoint runs a second pass that formats the agent's findings into that exact shape, returned as `structured_answer` (the plain-text `answer` is still included too). The schema **must have a top-level `"title"`** (used as the underlying function name for OpenAI's structured outputs) and, for strict enforcement, every property listed in `"required"` with `"additionalProperties": false`.
+
+```bash
+curl -X POST http://localhost:8000/search/ai \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key" \
+  -d '{
+    "query": "What is today'\''s top AI business news?",
+    "response_schema": {
+      "title": "AINewsSummary",
+      "type": "object",
+      "properties": {
+        "headline": {"type": "string"},
+        "key_points": {"type": "array", "items": {"type": "string"}},
+        "sentiment": {"type": "string", "enum": ["positive", "neutral", "negative"]}
+      },
+      "required": ["headline", "key_points", "sentiment"],
+      "additionalProperties": false
+    }
+  }'
+```
+
+```json
+{
+  "structured_answer": {
+    "headline": "...",
+    "key_points": ["...", "..."],
+    "sentiment": "neutral"
+  }
 }
 ```
 

@@ -13,7 +13,7 @@ load_dotenv()
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from agent_core import agent_executor
+from agent_core import agent_executor, model
 from serper_tool import serper_search_tool
 
 app = FastAPI(title="OSINT AI Research Agent API")
@@ -29,10 +29,12 @@ def require_api_key(x_api_key: Optional[str] = Header(None)) -> None:
 
 class AISearchRequest(BaseModel):
     query: str
+    response_schema: Optional[dict] = None
 
 
 class AISearchResponse(BaseModel):
     answer: str
+    structured_answer: Optional[dict] = None
     tool_calls: list
 
 
@@ -54,7 +56,11 @@ def health():
 
 @app.post("/search/ai", response_model=AISearchResponse, dependencies=[Depends(require_api_key)])
 def search_ai(request: AISearchRequest):
-    """Equivalent to the chat panel: the agent decides how (and whether) to search."""
+    """Equivalent to the chat panel: the agent decides how (and whether) to search.
+
+    If `response_schema` (a JSON Schema object) is provided, a second pass formats
+    the findings into that exact shape, returned as `structured_answer`.
+    """
     response = agent_executor.invoke({"messages": [("user", request.query)]})
     messages = response["messages"]
 
@@ -63,7 +69,17 @@ def search_ai(request: AISearchRequest):
         for call in getattr(msg, "tool_calls", None) or []:
             tool_calls.append({"tool": call["name"], "args": call["args"]})
 
-    return AISearchResponse(answer=messages[-1].content, tool_calls=tool_calls)
+    answer = messages[-1].content
+
+    structured_answer = None
+    if request.response_schema:
+        structured_answer = model.with_structured_output(request.response_schema).invoke(
+            f"Question: {request.query}\n\n"
+            f"Research findings:\n{answer}\n\n"
+            "Format these findings into the requested JSON structure."
+        )
+
+    return AISearchResponse(answer=answer, structured_answer=structured_answer, tool_calls=tool_calls)
 
 
 @app.post("/search/direct", dependencies=[Depends(require_api_key)])
