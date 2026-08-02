@@ -10,7 +10,7 @@ tools = [serper_search_tool]
 # Routed through OpenRouter's OpenAI-compatible API, so the LLM can be swapped
 # via LLM_MODEL (e.g. "openai/gpt-4o", "anthropic/claude-sonnet-5") without code changes.
 model = ChatOpenAI(
-    model=os.getenv("LLM_MODEL", "openai/gpt-4o"),
+    model=os.getenv("LLM_MODEL", "openai/gpt-4.1-nano"),
     temperature=0,
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url="https://openrouter.ai/api/v1",
@@ -30,4 +30,4 @@ agent_executor = create_react_agent(
     model,
     tools,
     prompt=system_prompt  # LangGraph now expects 'prompt' for string instructions
-)
+).with_config({"recursion_limit": 6})  # allow a couple of sequential search refinements, then cut off runaway loops
