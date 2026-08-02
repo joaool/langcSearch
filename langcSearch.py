@@ -31,14 +31,39 @@ if not check_password():
     st.stop()
 
 # --- Build the Agent (shared with the API, see agent_core.py) ---
-from agent_core import agent_executor
+from agent_core import agent_executor, model
+
+
+def _format_serper_log(log: dict) -> str:
+    """Render one captured Serper call as a single inspectable line of its real parameters."""
+    search_type = log["url"].rsplit("/", 1)[-1]
+    payload = log["payload"]
+    params = [
+        f"search_type=`{search_type}`",
+        f"query=`{payload.get('q')}`",
+        f"gl=`{payload.get('gl')}`",
+        f"hl=`{payload.get('hl')}`",
+        f"num=`{payload.get('num')}`",
+    ]
+    if "tbs" in payload:
+        params.append(f"time_filter=`{payload['tbs']}`")
+    return " · ".join(params)
+
 
 # --- Initialize Chat History Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 # --- Streamlit Chat Interface ---
-st.title("🕵️‍♂️ OSINT AI Research Agent v3")
-st.caption("Powered by FrameLink and Serper.dev")
+st.title("🕵️‍♂️ OSINT AI Research v3.1")
+st.caption(f"Powered by FrameLink and Serper.dev with model {model.model_name}")
+
+# --- Last Serper call parameters used, kept up to date across reruns ---
+serper_params_slot = st.empty()
+_last_logs = st.session_state.get("tool_logs", [])
+if _last_logs:
+    serper_params_slot.caption("🔍 " + "  \n".join(_format_serper_log(log) for log in _last_logs))
+else:
+    serper_params_slot.caption("🔍 No Serper calls yet.")
 
 # --- Manual Search Sidebar (bypass the AI agent, call Serper directly) ---
 with st.sidebar:
@@ -113,11 +138,11 @@ if user_input := st.chat_input("What would you like to research today?"):
         try:
             # Create a placeholder container to append real-time tracking widgets into
             status_container = st.container()
-            
+
             response = agent_executor.invoke({
                 "messages": [("user", user_input)]
             })
-            
+
             # --- NEW: Render tool executions inside an expandable status drawer ---
             captured_logs = st.session_state.get("tool_logs", [])
             if captured_logs:
@@ -127,6 +152,9 @@ if user_input := st.chat_input("What would you like to research today?"):
                             st.write(f"**Endpoint Triggered:** `{log['url']}`")
                             st.json(log['payload'])
                         status_box.update(label="API Calls Inspected Successfully", state="complete")
+                serper_params_slot.caption(
+                    "🔍 " + "  \n".join(_format_serper_log(log) for log in captured_logs)
+                )
             
             final_answer = response["messages"][-1].content
             
@@ -135,7 +163,7 @@ if user_input := st.chat_input("What would you like to research today?"):
                 
             # Append message alongside its associated search trace array to maintain persistence on webpage refreshes
             st.session_state.messages.append({
-                "role": "assistant", 
+                "role": "assistant",
                 "content": final_answer,
                 "logs": captured_logs
             })
