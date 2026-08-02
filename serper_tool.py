@@ -1,18 +1,36 @@
+import contextvars
 import os
+from contextlib import contextmanager
+
 import requests
-import streamlit as st
-from streamlit.runtime.scriptrunner import get_script_run_ctx
 from langchain_core.tools import tool
+
+# LangGraph executes tool calls on a worker thread from langchain_core's internal
+# thread pool, not the caller's thread. That pool copies contextvars into the
+# worker thread (unlike thread-local state), so a ContextVar is what lets callers
+# (e.g. the Streamlit UI) capture calls made during a specific agent invocation.
+_current_log: contextvars.ContextVar[list[dict] | None] = contextvars.ContextVar(
+    "_serper_tool_log", default=None
+)
+
+
+@contextmanager
+def capture_tool_calls():
+    """Yield a list that fills up with {url, payload} for every Serper call made
+    while inside this block, including calls made by the agent on its own worker
+    thread. No-ops (yields nothing useful) for calls made outside this context."""
+    log: list[dict] = []
+    token = _current_log.set(log)
+    try:
+        yield log
+    finally:
+        _current_log.reset(token)
 
 
 def _log_tool_call(url: str, payload: dict) -> None:
-    """Record the request in Streamlit's session state, when running inside a Streamlit app.
-    No-ops when called from a plain Python process (e.g. the API), which has no session state."""
-    if get_script_run_ctx() is None:
-        return
-    if "tool_logs" not in st.session_state:
-        st.session_state.tool_logs = []
-    st.session_state.tool_logs.append({"url": url, "payload": payload})
+    log = _current_log.get()
+    if log is not None:
+        log.append({"url": url, "payload": payload})
 
 
 @tool

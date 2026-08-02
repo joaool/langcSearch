@@ -1,7 +1,7 @@
 import time
 import os
 import streamlit as st
-from serper_tool import serper_search_tool
+from serper_tool import serper_search_tool, capture_tool_calls
 from dotenv import load_dotenv  # <-- Add this import
 # Load environment variables from your .env file
 load_dotenv()
@@ -130,21 +130,19 @@ if user_input := st.chat_input("What would you like to research today?"):
     
     st.chat_message("user").markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # Reset tool log array for the fresh execution loop
-    st.session_state.tool_logs = []
-    
+
     with st.spinner("Searching and analyzing..."):
         try:
             # Create a placeholder container to append real-time tracking widgets into
             status_container = st.container()
 
-            response = agent_executor.invoke({
-                "messages": [("user", user_input)]
-            })
+            with capture_tool_calls() as captured_logs:
+                response = agent_executor.invoke({
+                    "messages": [("user", user_input)]
+                })
+            st.session_state.tool_logs = captured_logs
 
             # --- NEW: Render tool executions inside an expandable status drawer ---
-            captured_logs = st.session_state.get("tool_logs", [])
             if captured_logs:
                 with status_container:
                     with st.status("🛠️ Tool Executions Detected", expanded=False) as status_box:
